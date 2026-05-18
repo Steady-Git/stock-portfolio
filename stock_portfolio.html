@@ -1384,7 +1384,35 @@ function showApp()      { document.getElementById('spinnerWrap').style.display='
 async function initApp() {
   showSpinner();
   try {
-    const { data } = await sb.auth.getSession();
+    // URL 해시에 토큰이 있는 경우 (이메일 인증, 비밀번호 재설정 링크 클릭 시)
+    const hash = window.location.hash;
+    if (hash && hash.includes('type=recovery')) {
+      // 비밀번호 재설정 링크 클릭 → 새 비밀번호 입력 화면 표시
+      showAuth();
+      showReset();
+      showAuthMsg('새 비밀번호를 입력해 주세요');
+      // 재설정 폼을 "새 비밀번호 설정" 모드로 변경
+      document.getElementById('resetBtn').textContent = '새 비밀번호 저장';
+      document.getElementById('resetBtn').onclick = doSetNewPassword;
+      document.getElementById('resetEmail').style.display = 'none';
+      document.getElementById('resetEmail').previousElementSibling.style.display = 'none';
+      // 새 비밀번호 입력란 추가
+      if (!document.getElementById('newPwField')) {
+        const field = document.createElement('div');
+        field.className = 'auth-field';
+        field.id = 'newPwField';
+        field.innerHTML = '<label>새 비밀번호</label><input type="password" id="newPw" placeholder="8자 이상" />';
+        document.getElementById('resetEmail').parentNode.insertBefore(field, document.getElementById('resetBtn'));
+      }
+      // 해시 제거
+      history.replaceState(null, '', window.location.pathname);
+      return;
+    }
+
+    // 일반 세션 확인
+    const { data, error } = await sb.auth.getSession();
+    if (error) throw error;
+
     if (data.session && data.session.user) {
       currentUser = data.session.user;
       document.getElementById('navEmail').textContent = currentUser.email;
@@ -1399,6 +1427,20 @@ async function initApp() {
   } catch(e) {
     console.error('initApp error:', e);
     showAuth();
+  }
+}
+
+async function doSetNewPassword() {
+  const pw = document.getElementById('newPw') && document.getElementById('newPw').value;
+  if (!pw || pw.length < 8) { showAuthErr('비밀번호는 8자 이상이어야 합니다'); return; }
+  const btn = document.getElementById('resetBtn');
+  btn.disabled = true; btn.textContent = '저장 중...';
+  const { error } = await sb.auth.updateUser({ password: pw });
+  btn.disabled = false; btn.textContent = '새 비밀번호 저장';
+  if (error) showAuthErr(error.message);
+  else {
+    showAuthMsg('✅ 비밀번호가 변경됐습니다! 새 비밀번호로 로그인해 주세요');
+    setTimeout(() => showLogin(), 2000);
   }
 }
 
