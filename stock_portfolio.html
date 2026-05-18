@@ -1384,9 +1384,13 @@ function showApp()      { document.getElementById('spinnerWrap').style.display='
 async function initApp() {
   showSpinner();
   try {
-    // URL 해시에 토큰이 있는 경우 (이메일 인증, 비밀번호 재설정 링크 클릭 시)
+    // URL 해시에 토큰이 있는 경우 (비밀번호 재설정 링크 클릭 시)
     const hash = window.location.hash;
-    if (hash && hash.includes('type=recovery')) {
+    const params = new URLSearchParams(hash.replace('#', ''));
+    const type = params.get('type');
+    const tokenHash = params.get('token_hash') || params.get('access_token');
+
+    if (type === 'recovery' && tokenHash) {
       // 비밀번호 재설정 링크 클릭 → 새 비밀번호 입력 화면 표시
       showAuth();
       showReset();
