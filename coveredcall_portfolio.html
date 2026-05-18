@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>💰 커버드콜 포트폴리오</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2236;--border:#1f2d47;--accent:#00d4aa;--accent2:#4f8ef7;--red:#ff4f6b;--yellow:#f5c842;--text:#e2e8f0;--text-muted:#64748b;--text-dim:#94a3b8;}
   *{margin:0;padding:0;box-sizing:border-box;}html{overflow-x:clip;}
@@ -116,6 +117,32 @@
   .bulk-input.dirty{border-color:var(--accent);color:var(--accent);}
   .bulk-cur-label{font-size:11px;color:var(--text-muted);white-space:nowrap;}
   .bulk-hidden{display:none !important;}
+  /* ── Auth ── */
+  .auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .auth-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px 36px;width:100%;max-width:420px;text-align:center;}
+  .auth-box h2{font-size:22px;font-weight:900;margin-bottom:6px;letter-spacing:-0.5px;}
+  .auth-box p{font-size:13px;color:var(--text-muted);margin-bottom:28px;}
+  .auth-tabs{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:24px;}
+  .auth-tab{flex:1;padding:8px;border:none;border-radius:7px;background:transparent;color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:'Noto Sans KR',sans-serif;}
+  .auth-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.3);}
+  .auth-field{margin-bottom:14px;text-align:left;}
+  .auth-field label{display:block;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:7px;}
+  .auth-field input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color 0.2s;}
+  .auth-field input:focus{border-color:var(--accent);}
+  .auth-btn{width:100%;background:var(--accent);color:#000;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;margin-top:4px;font-family:'Noto Sans KR',sans-serif;}
+  .auth-btn:hover{background:#00f0c0;}
+  .auth-btn:disabled{opacity:.6;cursor:not-allowed;}
+  .auth-msg{font-size:12px;margin-top:14px;padding:10px;border-radius:8px;}
+  .auth-msg.error{background:rgba(255,79,107,0.1);color:var(--red);border:1px solid rgba(255,79,107,0.2);}
+  .auth-msg.success{background:rgba(0,212,170,0.1);color:var(--accent);border:1px solid rgba(0,212,170,0.2);}
+  .user-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted);}
+  .user-bar span{flex:1;}
+  .user-bar button{background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text-muted);font-size:11px;padding:4px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+  .user-bar button:hover{border-color:var(--red);color:var(--red);}
+  .sync-btn{background:rgba(79,142,247,0.1);color:var(--accent2);border:1px solid rgba(79,142,247,0.25);border-radius:7px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+  .sync-btn:hover{background:rgba(79,142,247,0.2);}
+  .sync-status{font-size:11px;color:var(--text-muted);margin-left:4px;}
+
   @media(max-width:640px){
     .add-form-grid{grid-template-columns:1fr;}.field-full,.form-section{grid-column:1;}
     .bulk-input{width:90px;}
@@ -125,6 +152,31 @@
 </style>
 </head>
 <body>
+<!-- 로그인 화면 -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <div style="font-size:36px;margin-bottom:12px">💰</div>
+    <h2>커버드콜 포트폴리오</h2>
+    <p>계정으로 로그인하면 데이터가 자동으로 저장됩니다</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="setAuthMode('login')" id="tabLogin">로그인</button>
+      <button class="auth-tab" onclick="setAuthMode('signup')" id="tabSignup">회원가입</button>
+    </div>
+    <div class="auth-field"><label>이메일</label><input type="email" id="authEmail" placeholder="email@example.com" /></div>
+    <div class="auth-field"><label>비밀번호</label><input type="password" id="authPassword" placeholder="6자리 이상" /></div>
+    <button class="auth-btn" id="authBtn" onclick="doAuth()">로그인</button>
+    <div class="auth-msg" id="authMsg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- 유저 바 -->
+<div class="user-bar" id="userBar" style="display:none">
+  <span id="userEmail"></span>
+  <span class="sync-status" id="syncStatus"></span>
+  <button class="sync-btn" onclick="syncAll()">☁ 동기화</button>
+  <button onclick="signOut()">로그아웃</button>
+</div>
+
 <nav class="top-nav">
   <div class="nav-logo"><div class="nav-logo-dot"></div><span class="nav-logo-text">Covered Call Portfolio</span><div class="nav-logo-dot"></div></div>
   <div class="broker-tab-bar" id="brokerTabBar">
@@ -319,12 +371,261 @@
 </div>
 
 <script>
+/* ══════════════ Supabase 초기화 ══════════════ */
+const _supa = supabase.createClient('https://rnvlvsnjtswizsoqxsri.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64');
+let _userId = null;
+
+/* ── 인증 모드 전환 ── */
+let _authMode = 'login';
+function setAuthMode(mode) {
+  _authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
+  document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
+  document.getElementById('authBtn').textContent = mode==='login' ? '로그인' : '회원가입';
+  document.getElementById('authMsg').style.display = 'none';
+}
+document.getElementById('authEmail').addEventListener('keydown', e => { if(e.key==='Enter') doAuth(); });
+document.getElementById('authPassword').addEventListener('keydown', e => { if(e.key==='Enter') doAuth(); });
+
+async function doAuth() {
+  const email    = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const btn      = document.getElementById('authBtn');
+  const msg      = document.getElementById('authMsg');
+  if (!email || !password) { showAuthMsg('이메일과 비밀번호를 입력해주세요', 'error'); return; }
+  btn.disabled = true; btn.textContent = '처리 중...';
+  try {
+    let result;
+    if (_authMode === 'login') {
+      result = await _supa.auth.signInWithPassword({ email, password });
+    } else {
+      result = await _supa.auth.signUp({ email, password });
+    }
+    if (result.error) throw result.error;
+    if (_authMode === 'signup' && !result.data.session) {
+      showAuthMsg('이메일을 확인해주세요! 인증 링크를 클릭하면 로그인됩니다.', 'success');
+    }
+  } catch(e) {
+    showAuthMsg(e.message || '오류가 발생했습니다', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = _authMode==='login' ? '로그인' : '회원가입';
+  }
+}
+
+function showAuthMsg(text, type) {
+  const el = document.getElementById('authMsg');
+  el.textContent = text; el.className = 'auth-msg ' + type; el.style.display = 'block';
+}
+
+async function signOut() {
+  await _supa.auth.signOut();
+  location.reload();
+}
+
+/* ── 세션 감지 → 메인 앱 진입 ── */
+_supa.auth.onAuthStateChange(async (event, session) => {
+  if (session) {
+    _userId = session.user.id;
+    document.getElementById('authOverlay').style.display = 'none';
+    document.getElementById('userBar').style.display = 'flex';
+    document.getElementById('userEmail').textContent = session.user.email;
+    await loadFromSupabase();
+  } else {
+    document.getElementById('authOverlay').style.display = 'flex';
+    document.getElementById('userBar').style.display = 'none';
+    _userId = null;
+  }
+});
+
+/* ══════════════ Supabase CRUD ══════════════ */
+const _H = () => ({ 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + ('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64'), 'Content-Type': 'application/json', 'Prefer': 'return=representation' });
+
+async function sbGet(table, params='') {
+  const s = await _supa.auth.getSession();
+  const token = s.data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64';
+  const r = await fetch(`https://rnvlvsnjtswizsoqxsri.supabase.co/rest/v1/${table}?${params}&user_id=eq.${_userId}`, {
+    headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + token }
+  });
+  return r.json();
+}
+async function sbPost(table, body) {
+  const s = await _supa.auth.getSession();
+  const token = s.data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64';
+  const r = await fetch(`https://rnvlvsnjtswizsoqxsri.supabase.co/rest/v1/${table}`, {
+    method:'POST', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer':'return=representation' },
+    body: JSON.stringify({ ...body, user_id: _userId })
+  });
+  const d = await r.json(); return Array.isArray(d) ? d[0] : d;
+}
+async function sbPatch(table, id, body) {
+  const s = await _supa.auth.getSession();
+  const token = s.data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64';
+  const r = await fetch(`https://rnvlvsnjtswizsoqxsri.supabase.co/rest/v1/${table}?id=eq.${id}&user_id=eq.${_userId}`, {
+    method:'PATCH', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer':'return=representation' },
+    body: JSON.stringify(body)
+  });
+  const d = await r.json(); return Array.isArray(d) ? d[0] : d;
+}
+async function sbDelete(table, id) {
+  const s = await _supa.auth.getSession();
+  const token = s.data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64';
+  await fetch(`https://rnvlvsnjtswizsoqxsri.supabase.co/rest/v1/${table}?id=eq.${id}&user_id=eq.${_userId}`, {
+    method:'DELETE', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + token }
+  });
+}
+async function sbUpsert(table, body, onConflict) {
+  const s = await _supa.auth.getSession();
+  const token = s.data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64';
+  const r = await fetch(`https://rnvlvsnjtswizsoqxsri.supabase.co/rest/v1/${table}?on_conflict=${onConflict}`, {
+    method:'POST', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer':'return=representation,resolution=merge-duplicates' },
+    body: JSON.stringify({ ...body, user_id: _userId })
+  });
+  const d = await r.json(); return Array.isArray(d) ? d[0] : d;
+}
+
+/* ── ID 매핑 (로컬 id ↔ DB id) ── */
+const _brokerMap = new Map(); // localId → dbId
+const _stockMap  = new Map(); // localId → dbId
+const _histMap   = new Map(); // "stockDbId-ym" → dbId
+
+/* ══════════════ 전체 불러오기 ══════════════ */
+async function loadFromSupabase() {
+  setSyncStatus('불러오는 중...');
+  try {
+    const [bRows, sRows, hRows] = await Promise.all([
+      sbGet('brokers', 'order=sort_order'),
+      sbGet('stocks',  'order=created_at'),
+      sbGet('div_history', 'order=ym.desc'),
+    ]);
+
+    _brokerMap.clear(); _stockMap.clear(); _histMap.clear();
+
+    // 증권사
+    state.brokers = (bRows||[]).map(b => {
+      const localId = state.nextBrokerId++;
+      _brokerMap.set(localId, b.id);
+      return { id: localId, name: b.name, color: b.color };
+    });
+
+    // 종목 (broker_id → local brokerId 역매핑)
+    const dbBrokerToLocal = new Map();
+    state.brokers.forEach((br, i) => {
+      const dbId = _brokerMap.get(br.id);
+      dbBrokerToLocal.set(dbId, br.id);
+    });
+    // 더 정확한 역매핑
+    _brokerMap.forEach((dbId, localId) => dbBrokerToLocal.set(dbId, localId));
+
+    state.stocks = (sRows||[]).map(s => {
+      const localId = state.nextId++;
+      _stockMap.set(localId, s.id);
+      return {
+        id: localId,
+        brokerId: dbBrokerToLocal.get(s.broker_id) || 0,
+        name: s.name, qty: Number(s.qty)||0,
+        avgPrice: Number(s.avg_price)||0, curPrice: Number(s.cur_price)||0,
+        divPerShare: Number(s.div_per_share)||0,
+        exDate: s.ex_date||'', payDate: s.pay_date||'',
+        annYield: Number(s.ann_yield)||0, annDiv: Number(s.ann_div)||0,
+        divHistory: [],
+      };
+    });
+
+    // 배당 이력 → 종목에 붙이기
+    const dbStockToLocal = new Map();
+    _stockMap.forEach((dbId, localId) => dbStockToLocal.set(dbId, localId));
+    (hRows||[]).forEach(h => {
+      _histMap.set(`${h.stock_id}-${h.ym}`, h.id);
+      const localStockId = dbStockToLocal.get(h.stock_id);
+      const stock = state.stocks.find(s => s.id === localStockId);
+      if (stock) {
+        stock.divHistory.push({
+          ym: h.ym, qty: Number(h.qty)||0,
+          divPerShare: Number(h.div_per_share)||0,
+          exDate: h.ex_date||'', payDate: h.pay_date||'',
+          annYield: Number(h.ann_yield)||0, annDiv: Number(h.ann_div)||0,
+        });
+      }
+    });
+
+    saveState(); rebuildTabs(); render();
+    setSyncStatus('✓ 동기화됨');
+  } catch(e) {
+    setSyncStatus('⚠ 불러오기 실패');
+    console.error(e);
+  }
+}
+
+/* ══════════════ 전체 동기화 ══════════════ */
+async function syncAll() {
+  if (!_userId) return;
+  setSyncStatus('저장 중...');
+  try {
+    // 증권사
+    for (let i=0; i<state.brokers.length; i++) {
+      const br = state.brokers[i];
+      const dbId = _brokerMap.get(br.id);
+      if (!dbId) {
+        const row = await sbPost('brokers', { name:br.name, color:br.color, sort_order:i });
+        if (row?.id) _brokerMap.set(br.id, row.id);
+      } else {
+        await sbPatch('brokers', dbId, { name:br.name, color:br.color, sort_order:i });
+      }
+    }
+    // 종목
+    for (const s of state.stocks) {
+      const dbBrokerId = _brokerMap.get(s.brokerId);
+      const payload = { broker_id:dbBrokerId, name:s.name, qty:s.qty,
+        avg_price:s.avgPrice, cur_price:s.curPrice, div_per_share:s.divPerShare,
+        ex_date:s.exDate||null, pay_date:s.payDate||null,
+        ann_yield:s.annYield, ann_div:s.annDiv };
+      const dbId = _stockMap.get(s.id);
+      if (!dbId) {
+        const row = await sbPost('stocks', payload);
+        if (row?.id) _stockMap.set(s.id, row.id);
+      } else {
+        await sbPatch('stocks', dbId, payload);
+      }
+      // 이력
+      const stockDbId = _stockMap.get(s.id);
+      if (stockDbId) {
+        for (const h of (s.divHistory||[])) {
+          await sbUpsert('div_history', {
+            stock_id:stockDbId, ym:h.ym, qty:h.qty,
+            div_per_share:h.divPerShare, ex_date:h.exDate||null,
+            pay_date:h.payDate||null, ann_yield:h.annYield, ann_div:h.annDiv
+          }, 'stock_id,ym');
+        }
+      }
+    }
+    setSyncStatus('✓ 저장됨');
+    showToast('☁ 클라우드 저장 완료!');
+  } catch(e) {
+    setSyncStatus('⚠ 저장 실패');
+    showToast('저장 실패: ' + e.message, 'var(--red)');
+    console.error(e);
+  }
+}
+
+function setSyncStatus(text) {
+  const el = document.getElementById('syncStatus');
+  if (el) el.textContent = text;
+}
+
+/* ══════════════ 자동 동기화 (변경 시마다) ══════════════ */
+let _syncTimer = null;
+function autoSync() {
+  if (!_userId) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(syncAll, 2000);
+}
+
 const STORAGE_KEY='cc_portfolio_v1';
 const BROKER_COLORS=['#00d4aa','#4f8ef7','#f5c842','#ff4f6b','#a78bfa','#fb923c','#34d399','#f472b6','#60a5fa','#facc15','#4ade80','#c084fc','#f87171','#38bdf8','#a3e635'];
 let state={brokers:[],stocks:[],nextId:1,nextBrokerId:1};
 let currentTab='all',allView='broker',expandedMerged={},selBrokerColor=BROKER_COLORS[0],editBrokerColor=BROKER_COLORS[0];
 
-function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
+function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));autoSync();}
 function loadState(){try{const r=localStorage.getItem(STORAGE_KEY);if(r)state={...state,...JSON.parse(r)};}catch(e){}}
 function fmtKrw(n){return Math.round(n).toLocaleString('ko-KR')+'원';}
 function fmtSign(n){return(n>=0?'+':'')+Math.round(n).toLocaleString('ko-KR');}
@@ -667,6 +968,24 @@ function addStock(){
     divHistory:initHist,
   });
   saveState();clearAddForm();render();showToast(`${name} 추가됨!`);
+  if(_userId){
+    const dbBrId=_brokerMap.get(Number(currentTab));
+    const newStock=state.stocks[state.stocks.length-1];
+    sbPost('stocks',{broker_id:dbBrId,name,qty,avg_price:newStock.avgPrice,cur_price:newStock.curPrice,
+      div_per_share:newStock.divPerShare,ex_date:newStock.exDate||null,pay_date:newStock.payDate||null,
+      ann_yield:newStock.annYield,ann_div:newStock.annDiv})
+      .then(row=>{
+        if(row?.id){
+          _stockMap.set(newStock.id,row.id);
+          // 첫 이력도 저장
+          if(newStock.divHistory&&newStock.divHistory.length>0){
+            const h=newStock.divHistory[0];
+            sbUpsert('div_history',{stock_id:row.id,ym:h.ym,qty:h.qty,div_per_share:h.divPerShare,
+              ex_date:h.exDate||null,pay_date:h.payDate||null,ann_yield:h.annYield,ann_div:h.annDiv},'stock_id,ym');
+          }
+        }
+      });
+  }
 }
 function clearAddForm(){['f-name','f-qty','f-avg','f-cur','f-div','f-exdate','f-paydate','f-annyield','f-anndiv'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});}
 
@@ -684,6 +1003,10 @@ function confirmAddBroker(){
   const id=state.nextBrokerId++;
   state.brokers.push({id,name,color:selBrokerColor});
   saveState();rebuildTabs();closeAddBrokerModal();switchTab(id);showToast(`${name} 추가됨!`);
+  if(_userId){
+    sbPost('brokers',{name,color:selBrokerColor,sort_order:state.brokers.length-1})
+      .then(row=>{if(row?.id)_brokerMap.set(id,row.id);});
+  }
 }
 function openEditBrokerModal(id){
   const br=getBroker(id);if(!br)return;
@@ -703,8 +1026,10 @@ function deleteBroker(id){
   const br=getBroker(id);if(!br)return;
   const cnt=getBrokerStocks(id).length;
   if(!confirm(`${br.name}을(를) 삭제하시겠습니까?${cnt>0?'\n보유 종목 '+cnt+'개도 함께 삭제됩니다.':''}`))return;
+  const dbBrId=_brokerMap.get(id);
   state.brokers=state.brokers.filter(b=>b.id!==id);state.stocks=state.stocks.filter(s=>s.brokerId!==id);
   saveState();currentTab='all';rebuildTabs();render();showToast(`${br.name} 삭제됨`,'var(--red)');
+  if(_userId&&dbBrId) sbDelete('brokers',dbBrId);
 }
 function openEditModal(id){
   const s=state.stocks.find(x=>x.id===id);if(!s)return;
@@ -748,7 +1073,9 @@ function saveEdit(){
 function deleteStock(id){
   const s=state.stocks.find(x=>x.id===id);
   if(!s||!confirm(`${s.name}을(를) 삭제하시겠습니까?`))return;
+  const dbStId=_stockMap.get(id);
   state.stocks=state.stocks.filter(x=>x.id!==id);saveState();render();showToast(`${s.name} 삭제됨`,'var(--red)');
+  if(_userId&&dbStId) sbDelete('stocks',dbStId);
 }
 function buildColorPicker(containerId,selected,onChange){
   const el=document.getElementById(containerId);el.innerHTML='';
@@ -1022,6 +1349,13 @@ function histAdd() {
   s.annDiv      = latest.annDiv;
   saveState(); histRenderTable(s); render();
   showToast(`${ym} 배당 이력 저장!`);
+  if(_userId){
+    const stockDbId=_stockMap.get(s.id);
+    if(stockDbId){
+      sbUpsert('div_history',{stock_id:stockDbId,ym,qty,div_per_share:div,
+        ex_date:exDate||null,pay_date:payDate||null,ann_yield:annYield,ann_div:annDiv},'stock_id,ym');
+    }
+  }
 }
 
 function histDelete(stockId, ym) {
@@ -1037,6 +1371,15 @@ function histDelete(stockId, ym) {
   }
   saveState(); histRenderTable(s); render();
   showToast(`${ym} 이력 삭제됨`, 'var(--red)');
+  if(_userId){
+    const stockDbId=_stockMap.get(stockId);
+    if(stockDbId){
+      const key=`${stockDbId}-${ym}`;
+      const dbHistId=_histMap.get(key);
+      if(dbHistId) sbDelete('div_history',dbHistId);
+      _histMap.delete(key);
+    }
+  }
 }
 
 function histRenderTable(s) {
@@ -1086,7 +1429,10 @@ function histRenderTable(s) {
   </table></div>`;
 }
 
-loadState();rebuildTabs();render();
+// Supabase 세션이 없을 때만 localStorage 로드 (세션 있으면 loadFromSupabase가 처리)
+_supa.auth.getSession().then(({data:{session}})=>{
+  if(!session){loadState();rebuildTabs();render();}
+});
 (function(){const now=new Date();const lbl=document.getElementById('sum-label');if(lbl)lbl.textContent=`${now.getFullYear()}년 ${now.getMonth()+1}월`;})();
 </script>
 </body>
