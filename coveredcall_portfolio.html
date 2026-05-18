@@ -14,8 +14,14 @@
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-  .top-nav{position:static;background:var(--surface);border-bottom:1px solid var(--border);}
-  .nav-logo{display:flex;align-items:center;justify-content:center;height:48px;border-bottom:1px solid var(--border);gap:10px;}
+  .top-nav{position:sticky;top:0;z-index:200;background:var(--surface);border-bottom:1px solid var(--border);}
+  .nav-center{display:flex;align-items:center;justify-content:center;gap:8px;flex:1;}
+  .nav-right{display:flex;align-items:center;gap:8px;padding-right:16px;min-width:180px;justify-content:flex-end;}
+  .nav-user-email{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;}
+  .nav-saving{font-size:11px;color:var(--text-muted);}
+  .nav-logout-btn{background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text-muted);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.2s;}
+  .nav-logout-btn:hover{border-color:var(--red);color:var(--red);}
+  .nav-logo{display:flex;align-items:center;justify-content:space-between;height:48px;border-bottom:1px solid var(--border);}
   .nav-logo-text{font-size:13px;font-weight:900;letter-spacing:2px;color:var(--accent);text-transform:uppercase;}
   .nav-logo-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s ease-in-out infinite;}
   .broker-tab-bar{display:flex;align-items:stretch;height:50px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
@@ -135,13 +141,7 @@
   .auth-msg{font-size:12px;margin-top:14px;padding:10px;border-radius:8px;}
   .auth-msg.error{background:rgba(255,79,107,0.1);color:var(--red);border:1px solid rgba(255,79,107,0.2);}
   .auth-msg.success{background:rgba(0,212,170,0.1);color:var(--accent);border:1px solid rgba(0,212,170,0.2);}
-  .user-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted);}
-  .user-bar span{flex:1;}
-  .user-bar button{background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text-muted);font-size:11px;padding:4px 10px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
-  .user-bar button:hover{border-color:var(--red);color:var(--red);}
-  .sync-btn{background:rgba(79,142,247,0.1);color:var(--accent2);border:1px solid rgba(79,142,247,0.25);border-radius:7px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
-  .sync-btn:hover{background:rgba(79,142,247,0.2);}
-  .sync-status{font-size:11px;color:var(--text-muted);margin-left:4px;}
+
 
   @media(max-width:640px){
     .add-form-grid{grid-template-columns:1fr;}.field-full,.form-section{grid-column:1;}
@@ -170,20 +170,25 @@
 </div>
 
 <!-- 유저 바 -->
-<div style="position:sticky;top:0;z-index:200">
-  <div class="user-bar" id="userBar" style="display:none">
-    <span id="userEmail" style="font-size:12px;color:var(--text-muted)"></span>
-    <span class="sync-status" id="syncStatus" style="font-size:11px;color:var(--text-muted)"></span>
-    <button onclick="signOut()" style="background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text-muted);font-size:11px;padding:4px 12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.2s;">로그아웃</button>
+<nav class="top-nav">
+  <div class="nav-logo">
+    <div style="width:60px"></div>
+    <div class="nav-center">
+      <div class="nav-logo-dot"></div>
+      <span class="nav-logo-text">Covered Call Portfolio</span>
+      <div class="nav-logo-dot"></div>
+    </div>
+    <div class="nav-right" id="navRight" style="display:none">
+      <span class="nav-user-email" id="userEmail"></span>
+      <span class="nav-saving" id="syncStatus"></span>
+      <button class="nav-logout-btn" onclick="signOut()">로그아웃</button>
+    </div>
   </div>
-  <nav class="top-nav" style="position:static">
-  <div class="nav-logo"><div class="nav-logo-dot"></div><span class="nav-logo-text">Covered Call Portfolio</span><div class="nav-logo-dot"></div></div>
   <div class="broker-tab-bar" id="brokerTabBar">
     <button class="broker-tab active" data-broker-id="all" onclick="switchTab('all')">📊 전체 현황</button>
     <button class="broker-tab-add" onclick="openAddBrokerModal()" title="증권사 추가">＋</button>
   </div>
-  </nav>
-</div>
+</nav>
 
 <div class="wrapper">
   <header>
@@ -427,12 +432,12 @@ _supa.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     _userId = session.user.id;
     document.getElementById('authOverlay').style.display = 'none';
-    document.getElementById('userBar').style.display = 'flex';
+    document.getElementById('navRight').style.display = 'flex';
     document.getElementById('userEmail').textContent = session.user.email;
     await loadFromSupabase();
   } else {
     document.getElementById('authOverlay').style.display = 'flex';
-    document.getElementById('userBar').style.display = 'none';
+    document.getElementById('navRight').style.display = 'none';
     _userId = null;
   }
 });
