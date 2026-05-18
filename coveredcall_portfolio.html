@@ -12,6 +12,7 @@
   body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;overflow-x:clip;}
   body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,170,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,170,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
   .top-nav{position:sticky;top:0;z-index:200;background:var(--surface);border-bottom:1px solid var(--border);}
@@ -124,7 +125,7 @@
   .bulk-cur-label{font-size:11px;color:var(--text-muted);white-space:nowrap;}
   .bulk-hidden{display:none !important;}
   /* ── Auth ── */
-  .auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;}
   .auth-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px 36px;width:100%;max-width:420px;text-align:center;}
   .auth-box h2{font-size:22px;font-weight:900;margin-bottom:6px;letter-spacing:-0.5px;}
   .auth-box p{font-size:13px;color:var(--text-muted);margin-bottom:28px;}
@@ -153,6 +154,10 @@
 </head>
 <body>
 <!-- 로그인 화면 -->
+<div id="spinnerWrap" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9998;background:var(--bg)">
+  <div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite"></div>
+</div>
+
 <div class="auth-overlay" id="authOverlay">
   <div class="auth-box">
     <div style="font-size:36px;margin-bottom:12px">💰</div>
@@ -180,7 +185,6 @@
     </div>
     <div class="nav-right" id="navRight" style="display:none">
       <span class="nav-user-email" id="userEmail"></span>
-      <span class="nav-saving" id="syncStatus"></span>
       <button class="nav-logout-btn" onclick="signOut()">로그아웃</button>
     </div>
   </div>
@@ -409,6 +413,10 @@ async function doAuth() {
     if (result.error) throw result.error;
     if (_authMode === 'signup' && !result.data.session) {
       showAuthMsg('이메일을 확인해주세요! 인증 링크를 클릭하면 로그인됩니다.', 'success');
+    } else if (result.data.session) {
+      _userId = result.data.session.user.id;
+      showApp(result.data.session.user);
+      await loadFromSupabase();
     }
   } catch(e) {
     showAuthMsg(e.message || '오류가 발생했습니다', 'error');
@@ -424,23 +432,47 @@ function showAuthMsg(text, type) {
 
 async function signOut() {
   await _supa.auth.signOut();
-  location.reload();
+  _userId = null;
+  state = { brokers:[], stocks:[], nextId:1, nextBrokerId:1 };
+  showAuth();
+  rebuildTabs();
+  render();
 }
 
-/* ── 세션 감지 → 메인 앱 진입 ── */
-_supa.auth.onAuthStateChange(async (event, session) => {
-  if (session) {
-    _userId = session.user.id;
-    document.getElementById('authOverlay').style.display = 'none';
-    document.getElementById('navRight').style.display = 'flex';
-    document.getElementById('userEmail').textContent = session.user.email;
-    await loadFromSupabase();
-  } else {
-    document.getElementById('authOverlay').style.display = 'flex';
-    document.getElementById('navRight').style.display = 'none';
-    _userId = null;
+/* ── 화면 전환 헬퍼 ── */
+function showSpinner() {
+  document.getElementById('spinnerWrap').style.display = 'flex';
+  document.getElementById('authOverlay').style.display = 'none';
+}
+function showAuth() {
+  document.getElementById('spinnerWrap').style.display = 'none';
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.getElementById('navRight').style.display = 'none';
+}
+function showApp(user) {
+  document.getElementById('spinnerWrap').style.display = 'none';
+  document.getElementById('authOverlay').style.display = 'none';
+  document.getElementById('navRight').style.display = 'flex';
+  document.getElementById('userEmail').textContent = user.email;
+}
+
+/* ── 앱 초기화 ── */
+async function initApp() {
+  showSpinner();
+  try {
+    const { data } = await _supa.auth.getSession();
+    if (data.session && data.session.user) {
+      _userId = data.session.user.id;
+      showApp(data.session.user);
+      await loadFromSupabase();
+    } else {
+      showAuth();
+    }
+  } catch(e) {
+    console.error('initApp error:', e);
+    showAuth();
   }
-});
+}
 
 /* ══════════════ Supabase CRUD ══════════════ */
 const _H = () => ({ 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + ('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64'), 'Content-Type': 'application/json', 'Prefer': 'return=representation' });
@@ -632,8 +664,8 @@ async function syncAll() {
 }
 
 function setSyncStatus(text) {
-  const el = document.getElementById('syncStatus');
-  if (el) el.textContent = text;
+  // 상태 표시 비활성화 (nav 버튼 클릭 방해 방지)
+  // console.log('[sync]', text);
 }
 
 /* ══════════════ 자동 동기화 (변경 시마다) ══════════════ */
@@ -1467,10 +1499,7 @@ function histRenderTable(s) {
   </table></div>`;
 }
 
-// Supabase 세션이 없을 때만 localStorage 로드 (세션 있으면 loadFromSupabase가 처리)
-_supa.auth.getSession().then(({data:{session}})=>{
-  if(!session){loadState();rebuildTabs();render();}
-});
+initApp();
 (function(){const now=new Date();const lbl=document.getElementById('sum-label');if(lbl)lbl.textContent=`${now.getFullYear()}년 ${now.getMonth()+1}월`;})();
 </script>
 </body>
