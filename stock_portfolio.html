@@ -496,17 +496,6 @@ function showAuthErr(msg) { const el=document.getElementById('authErrBox'); el.t
 function showAuthMsg(msg) { const el=document.getElementById('authMsgBox'); el.textContent=msg; el.style.display=''; document.getElementById('authErrBox').style.display='none'; }
 function clearAuthMsg()   { document.getElementById('authErrBox').style.display='none'; document.getElementById('authMsgBox').style.display='none'; }
 
-async function doLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pw    = document.getElementById('loginPw').value;
-  if (!email || !pw) { showAuthErr('이메일과 비밀번호를 입력해 주세요'); return; }
-  const btn = document.getElementById('loginBtn');
-  btn.disabled = true; btn.textContent = '로그인 중...';
-  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
-  btn.disabled = false; btn.textContent = '로그인';
-  if (error) showAuthErr(error.message === 'Invalid login credentials' ? '이메일 또는 비밀번호가 올바르지 않습니다' : error.message);
-}
-
 async function doSignup() {
   const email = document.getElementById('signupEmail').value.trim();
   const pw    = document.getElementById('signupPw').value;
@@ -529,10 +518,6 @@ async function doReset() {
   btn.disabled = false; btn.textContent = '재설정 링크 보내기';
   if (error) showAuthErr(error.message);
   else showAuthMsg('📧 재설정 링크를 보냈습니다. 이메일을 확인해 주세요!');
-}
-
-async function doLogout() {
-  await sb.auth.signOut();
 }
 
 // ═══════════════════════════════════════════
@@ -1390,59 +1375,67 @@ document.addEventListener('keydown',e=>{
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show');}));
 
 // ═══════════════════════════════════════════
-//  Init — 페이지 로드 시 세션 직접 확인
+//  Init
 // ═══════════════════════════════════════════
-async function initApp() {
-  try {
-    const { data: { session } } = await sb.auth.getSession();
+function showSpinner()  { document.getElementById('spinnerWrap').style.display='flex'; document.getElementById('authWrap').style.display='none'; document.getElementById('appWrap').style.display='none'; }
+function showAuth()     { document.getElementById('spinnerWrap').style.display='none'; document.getElementById('authWrap').style.display='flex'; document.getElementById('appWrap').style.display='none'; }
+function showApp()      { document.getElementById('spinnerWrap').style.display='none'; document.getElementById('authWrap').style.display='none'; document.getElementById('appWrap').style.display=''; }
 
-    if (session && session.user) {
-      currentUser = session.user;
+async function initApp() {
+  showSpinner();
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data.session && data.session.user) {
+      currentUser = data.session.user;
       document.getElementById('navEmail').textContent = currentUser.email;
       await loadFromDB();
       currentTab = 'all';
       rebuildTabs();
       render();
-      document.getElementById('spinnerWrap').style.display = 'none';
-      document.getElementById('appWrap').style.display = '';
+      showApp();
     } else {
-      document.getElementById('spinnerWrap').style.display = 'none';
-      document.getElementById('authWrap').style.display = 'flex';
+      showAuth();
     }
   } catch(e) {
-    console.error('초기화 오류:', e);
-    document.getElementById('spinnerWrap').style.display = 'none';
-    document.getElementById('authWrap').style.display = 'flex';
+    console.error('initApp error:', e);
+    showAuth();
   }
 }
 
-// 로그인 성공 후 앱 화면 전환
-sb.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN' && session && !document.getElementById('appWrap').style.display) return;
+// 로그인 성공 시 호출
+async function onLoginSuccess(user) {
+  currentUser = user;
+  document.getElementById('navEmail').textContent = currentUser.email;
+  showSpinner();
+  await loadFromDB();
+  currentTab = 'all';
+  rebuildTabs();
+  render();
+  showApp();
+}
 
-  if (event === 'SIGNED_IN' && session && session.user) {
-    if (document.getElementById('appWrap').style.display === '') return; // 이미 앱 실행 중
-    currentUser = session.user;
-    document.getElementById('navEmail').textContent = currentUser.email;
-    document.getElementById('authWrap').style.display = 'none';
-    document.getElementById('spinnerWrap').style.display = 'flex';
-    try {
-      await loadFromDB();
-    } catch(e) { console.error(e); }
-    currentTab = 'all';
-    rebuildTabs();
-    render();
-    document.getElementById('spinnerWrap').style.display = 'none';
-    document.getElementById('appWrap').style.display = '';
+// doLogin / doSignup 에서 성공 후 직접 호출하도록 수정
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw    = document.getElementById('loginPw').value;
+  if (!email || !pw) { showAuthErr('이메일과 비밀번호를 입력해 주세요'); return; }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = '로그인 중...';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+  btn.disabled = false; btn.textContent = '로그인';
+  if (error) {
+    showAuthErr(error.message === 'Invalid login credentials' ? '이메일 또는 비밀번호가 올바르지 않습니다' : error.message);
+  } else {
+    await onLoginSuccess(data.user);
   }
+}
 
-  if (event === 'SIGNED_OUT') {
-    currentUser = null;
-    state = { brokers:[], stocks:[], exchangeRate:1400, fxUpdatedAt:null };
-    document.getElementById('appWrap').style.display = 'none';
-    document.getElementById('authWrap').style.display = 'flex';
-  }
-});
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  state = { brokers:[], stocks:[], exchangeRate:1400, fxUpdatedAt:null };
+  showAuth();
+}
 
 initApp();
 </script>
