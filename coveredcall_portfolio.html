@@ -477,189 +477,204 @@ async function initApp() {
 /* ══════════════ Supabase CRUD ══════════════ */
 const _H = () => ({ 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + ('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64'), 'Content-Type': 'application/json', 'Prefer': 'return=representation' });
 
-async function sbGet(table, params='') {
-  const s = await _supa.auth.getSession();
-  const token = s.data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64';
-  const r = await fetch(`https://rnvlvsnjtswizsoqxsri.supabase.co/rest/v1/${table}?${params}&user_id=eq.${_userId}`, {
-    headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + token }
-  });
-  return r.json();
+/* ══════════════ Supabase DB 함수 (SDK 직접 사용) ══════════════ */
+async function dbGet(table, order='created_at') {
+  const { data, error } = await _supa.from(table)
+    .select('*')
+    .eq('user_id', _userId)
+    .order(order);
+  if (error) throw error;
+  return data || [];
 }
-async function sbPost(table, body) {
-  const s = await _supa.auth.getSession();
-  const token = s.data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64';
-  const r = await fetch(`https://rnvlvsnjtswizsoqxsri.supabase.co/rest/v1/${table}`, {
-    method:'POST', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer':'return=representation' },
-    body: JSON.stringify({ ...body, user_id: _userId })
-  });
-  const d = await r.json(); return Array.isArray(d) ? d[0] : d;
+async function dbGetWithSub(table, sub, order='created_at') {
+  const { data, error } = await _supa.from(table)
+    .select(`*, ${sub}(*)`)
+    .eq('user_id', _userId)
+    .order(order);
+  if (error) throw error;
+  return data || [];
 }
-async function sbPatch(table, id, body) {
-  const s = await _supa.auth.getSession();
-  const token = s.data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64';
-  const r = await fetch(`https://rnvlvsnjtswizsoqxsri.supabase.co/rest/v1/${table}?id=eq.${id}&user_id=eq.${_userId}`, {
-    method:'PATCH', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer':'return=representation' },
-    body: JSON.stringify(body)
-  });
-  const d = await r.json(); return Array.isArray(d) ? d[0] : d;
+async function dbInsert(table, row) {
+  const { data, error } = await _supa.from(table)
+    .insert({ ...row, user_id: _userId })
+    .select().single();
+  if (error) throw error;
+  return data;
 }
-async function sbDelete(table, id) {
-  const s = await _supa.auth.getSession();
-  const token = s.data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64';
-  await fetch(`https://rnvlvsnjtswizsoqxsri.supabase.co/rest/v1/${table}?id=eq.${id}&user_id=eq.${_userId}`, {
-    method:'DELETE', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + token }
-  });
+async function dbUpdate(table, id, row) {
+  const { data, error } = await _supa.from(table)
+    .update(row)
+    .eq('id', id).eq('user_id', _userId)
+    .select().single();
+  if (error) throw error;
+  return data;
 }
-async function sbUpsert(table, body, onConflict) {
-  const s = await _supa.auth.getSession();
-  const token = s.data.session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64';
-  const r = await fetch(`https://rnvlvsnjtswizsoqxsri.supabase.co/rest/v1/${table}?on_conflict=${onConflict}`, {
-    method:'POST', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudmx2c25qdHN3aXpzb3F4c3JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODc5MzUsImV4cCI6MjA5NDY2MzkzNX0.nPmQ72eqsnoQzxE2hAgGIF2iEP7YSRsST_l81PrYo64', 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer':'return=representation,resolution=merge-duplicates' },
-    body: JSON.stringify({ ...body, user_id: _userId })
-  });
-  const d = await r.json(); return Array.isArray(d) ? d[0] : d;
+async function dbDelete(table, id) {
+  const { error } = await _supa.from(table)
+    .delete()
+    .eq('id', id).eq('user_id', _userId);
+  if (error) throw error;
+}
+async function dbUpsert(table, row, onConflict) {
+  const { data, error } = await _supa.from(table)
+    .upsert({ ...row, user_id: _userId }, { onConflict })
+    .select().single();
+  if (error) throw error;
+  return data;
 }
 
-/* ── ID 매핑 (로컬 id ↔ DB id) ── */
 const _brokerMap = new Map(); // localId → dbId
 const _stockMap  = new Map(); // localId → dbId
 const _histMap   = new Map(); // "stockDbId-ym" → dbId
 
 /* ══════════════ 전체 불러오기 ══════════════ */
 async function loadFromSupabase() {
-  setSyncStatus('불러오는 중...');
   try {
-    const [bRows, sRows, hRows] = await Promise.all([
-      sbGet('brokers', 'order=sort_order'),
-      sbGet('stocks',  'order=created_at'),
-      sbGet('div_history', 'order=ym.desc'),
-    ]);
+    // 1. 증권사
+    const bRows = await dbGet('brokers', 'sort_order');
+    // 2. 종목
+    const sRows = await dbGet('stocks', 'created_at');
+    // 3. 배당 이력
+    const hRows = await dbGet('div_history', 'ym');
 
     _brokerMap.clear(); _stockMap.clear(); _histMap.clear();
+    state.nextId = 1; state.nextBrokerId = 1;
 
-    // 증권사
-    state.brokers = (bRows||[]).map(b => {
+    // 증권사 매핑
+    state.brokers = bRows.map(b => {
       const localId = state.nextBrokerId++;
       _brokerMap.set(localId, b.id);
       return { id: localId, name: b.name, color: b.color };
     });
 
-    // 종목 (broker_id → local brokerId 역매핑)
+    // DB broker_id → local brokerId 역매핑
     const dbBrokerToLocal = new Map();
-    state.brokers.forEach((br, i) => {
-      const dbId = _brokerMap.get(br.id);
-      dbBrokerToLocal.set(dbId, br.id);
-    });
-    // 더 정확한 역매핑
     _brokerMap.forEach((dbId, localId) => dbBrokerToLocal.set(dbId, localId));
 
-    state.stocks = (sRows||[]).map(s => {
+    // 종목 매핑
+    state.stocks = sRows.map(s => {
       const localId = state.nextId++;
       _stockMap.set(localId, s.id);
       return {
         id: localId,
         brokerId: dbBrokerToLocal.get(s.broker_id) || 0,
-        name: s.name, qty: Number(s.qty)||0,
-        avgPrice: Number(s.avg_price)||0, curPrice: Number(s.cur_price)||0,
-        divPerShare: Number(s.div_per_share)||0,
-        exDate: s.ex_date||'', payDate: s.pay_date||'',
-        annYield: Number(s.ann_yield)||0, annDiv: Number(s.ann_div)||0,
-        divHistory: [],
+        name: s.name,
+        qty:          Number(s.qty)           || 0,
+        avgPrice:     Number(s.avg_price)      || 0,
+        curPrice:     Number(s.cur_price)      || 0,
+        divPerShare:  Number(s.div_per_share)  || 0,
+        exDate:       s.ex_date  || '',
+        payDate:      s.pay_date || '',
+        annYield:     Number(s.ann_yield)      || 0,
+        annDiv:       Number(s.ann_div)        || 0,
+        divHistory:   [],
       };
     });
 
     // 배당 이력 → 종목에 붙이기
     const dbStockToLocal = new Map();
     _stockMap.forEach((dbId, localId) => dbStockToLocal.set(dbId, localId));
-    (hRows||[]).forEach(h => {
+    hRows.forEach(h => {
       _histMap.set(`${h.stock_id}-${h.ym}`, h.id);
-      const localStockId = dbStockToLocal.get(h.stock_id);
-      const stock = state.stocks.find(s => s.id === localStockId);
+      const localId = dbStockToLocal.get(h.stock_id);
+      const stock   = state.stocks.find(s => s.id === localId);
       if (stock) {
         stock.divHistory.push({
-          ym: h.ym, qty: Number(h.qty)||0,
-          divPerShare: Number(h.div_per_share)||0,
-          exDate: h.ex_date||'', payDate: h.pay_date||'',
-          annYield: Number(h.ann_yield)||0, annDiv: Number(h.ann_div)||0,
+          ym:          h.ym,
+          qty:         Number(h.qty)           || 0,
+          divPerShare: Number(h.div_per_share)  || 0,
+          exDate:      h.ex_date  || '',
+          payDate:     h.pay_date || '',
+          annYield:    Number(h.ann_yield)      || 0,
+          annDiv:      Number(h.ann_div)        || 0,
         });
+        stock.divHistory.sort((a,b) => b.ym.localeCompare(a.ym));
       }
     });
 
-    // DB가 비어있고 localStorage에 데이터가 있으면 localStorage 보존 + DB에 업로드
-    if(state.brokers.length === 0){
+    // DB가 비어있으면 localStorage 데이터를 DB에 업로드
+    if (state.brokers.length === 0) {
       const localRaw = localStorage.getItem(STORAGE_KEY);
-      if(localRaw){
-        try{
+      if (localRaw) {
+        try {
           const local = JSON.parse(localRaw);
-          if(local.brokers && local.brokers.length > 0){
-            state = {...state, ...local};
+          if (local.brokers && local.brokers.length > 0) {
+            state = { ...state, ...local };
             rebuildTabs(); render();
-            setSyncStatus('로컬→클라우드 업로드 중...');
             _brokerMap.clear(); _stockMap.clear(); _histMap.clear();
             await syncAll();
             return;
           }
-        }catch(e2){}
+        } catch(e2) {}
       }
     }
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     rebuildTabs(); render();
-    setSyncStatus('✓ 동기화됨');
   } catch(e) {
-    setSyncStatus('⚠ 불러오기 실패');
-    console.error(e);
-    // 실패 시 localStorage fallback
+    console.error('loadFromSupabase error:', e);
+    showToast('데이터 불러오기 실패: ' + e.message, 'var(--red)');
     loadState(); rebuildTabs(); render();
   }
 }
 
-/* ══════════════ 전체 동기화 ══════════════ */
+/* ══════════════ 전체 동기화 (syncAll) ══════════════ */
 async function syncAll() {
   if (!_userId) return;
-  setSyncStatus('저장 중...');
   try {
     // 증권사
-    for (let i=0; i<state.brokers.length; i++) {
-      const br = state.brokers[i];
+    for (let i = 0; i < state.brokers.length; i++) {
+      const br   = state.brokers[i];
       const dbId = _brokerMap.get(br.id);
       if (!dbId) {
-        const row = await sbPost('brokers', { name:br.name, color:br.color, sort_order:i });
+        const row = await dbInsert('brokers', { name:br.name, color:br.color, sort_order:i });
         if (row?.id) _brokerMap.set(br.id, row.id);
       } else {
-        await sbPatch('brokers', dbId, { name:br.name, color:br.color, sort_order:i });
+        await dbUpdate('brokers', dbId, { name:br.name, color:br.color, sort_order:i });
       }
     }
     // 종목
     for (const s of state.stocks) {
       const dbBrokerId = _brokerMap.get(s.brokerId);
-      const payload = { broker_id:dbBrokerId, name:s.name, qty:s.qty,
-        avg_price:s.avgPrice, cur_price:s.curPrice, div_per_share:s.divPerShare,
-        ex_date:s.exDate||null, pay_date:s.payDate||null,
-        ann_yield:s.annYield, ann_div:s.annDiv };
+      const payload = {
+        broker_id:    dbBrokerId,
+        name:         s.name,
+        qty:          s.qty,
+        avg_price:    s.avgPrice,
+        cur_price:    s.curPrice,
+        div_per_share:s.divPerShare,
+        ex_date:      s.exDate  || null,
+        pay_date:     s.payDate || null,
+        ann_yield:    s.annYield,
+        ann_div:      s.annDiv,
+      };
       const dbId = _stockMap.get(s.id);
       if (!dbId) {
-        const row = await sbPost('stocks', payload);
+        const row = await dbInsert('stocks', payload);
         if (row?.id) _stockMap.set(s.id, row.id);
       } else {
-        await sbPatch('stocks', dbId, payload);
+        await dbUpdate('stocks', dbId, payload);
       }
-      // 이력
+      // 배당 이력
       const stockDbId = _stockMap.get(s.id);
       if (stockDbId) {
-        for (const h of (s.divHistory||[])) {
-          await sbUpsert('div_history', {
-            stock_id:stockDbId, ym:h.ym, qty:h.qty,
-            div_per_share:h.divPerShare, ex_date:h.exDate||null,
-            pay_date:h.payDate||null, ann_yield:h.annYield, ann_div:h.annDiv
+        for (const h of (s.divHistory || [])) {
+          await dbUpsert('div_history', {
+            stock_id:     stockDbId,
+            ym:           h.ym,
+            qty:          h.qty,
+            div_per_share:h.divPerShare,
+            ex_date:      h.exDate  || null,
+            pay_date:     h.payDate || null,
+            ann_yield:    h.annYield,
+            ann_div:      h.annDiv,
           }, 'stock_id,ym');
         }
       }
     }
-    setSyncStatus('✓ 저장됨');
   } catch(e) {
-    setSyncStatus('⚠ 저장 실패');
-    showToast('저장 실패: ' + e.message, 'var(--red)');
-    console.error(e);
+    console.error('syncAll error:', e);
+    showToast('자동저장 실패: ' + e.message, 'var(--red)');
   }
 }
 
@@ -1033,20 +1048,20 @@ function addStock(){
   if(_userId){
     const dbBrId=_brokerMap.get(Number(currentTab));
     const newStock=state.stocks[state.stocks.length-1];
-    sbPost('stocks',{broker_id:dbBrId,name,qty,avg_price:newStock.avgPrice,cur_price:newStock.curPrice,
+    dbInsert('stocks',{broker_id:dbBrId,name,qty,avg_price:newStock.avgPrice,cur_price:newStock.curPrice,
       div_per_share:newStock.divPerShare,ex_date:newStock.exDate||null,pay_date:newStock.payDate||null,
       ann_yield:newStock.annYield,ann_div:newStock.annDiv})
       .then(row=>{
         if(row?.id){
           _stockMap.set(newStock.id,row.id);
-          // 첫 이력도 저장
           if(newStock.divHistory&&newStock.divHistory.length>0){
             const h=newStock.divHistory[0];
-            sbUpsert('div_history',{stock_id:row.id,ym:h.ym,qty:h.qty,div_per_share:h.divPerShare,
-              ex_date:h.exDate||null,pay_date:h.payDate||null,ann_yield:h.annYield,ann_div:h.annDiv},'stock_id,ym');
+            dbUpsert('div_history',{stock_id:row.id,ym:h.ym,qty:h.qty,div_per_share:h.divPerShare,
+              ex_date:h.exDate||null,pay_date:h.payDate||null,ann_yield:h.annYield,ann_div:h.annDiv},'stock_id,ym')
+              .catch(e=>console.error('hist insert:',e));
           }
         }
-      });
+      }).catch(e=>console.error('stock insert:',e));
   }
 }
 function clearAddForm(){['f-name','f-qty','f-avg','f-cur','f-div','f-exdate','f-paydate','f-annyield','f-anndiv'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});}
@@ -1066,8 +1081,9 @@ function confirmAddBroker(){
   state.brokers.push({id,name,color:selBrokerColor});
   saveState();rebuildTabs();closeAddBrokerModal();switchTab(id);showToast(`${name} 추가됨!`);
   if(_userId){
-    sbPost('brokers',{name,color:selBrokerColor,sort_order:state.brokers.length-1})
-      .then(row=>{if(row?.id)_brokerMap.set(id,row.id);});
+    dbInsert('brokers',{name,color:selBrokerColor,sort_order:state.brokers.length-1})
+      .then(row=>{if(row?.id)_brokerMap.set(id,row.id);})
+      .catch(e=>console.error('broker insert:',e));
   }
 }
 function openEditBrokerModal(id){
@@ -1091,7 +1107,7 @@ function deleteBroker(id){
   const dbBrId=_brokerMap.get(id);
   state.brokers=state.brokers.filter(b=>b.id!==id);state.stocks=state.stocks.filter(s=>s.brokerId!==id);
   saveState();autoSync();currentTab='all';rebuildTabs();render();showToast(`${br.name} 삭제됨`,'var(--red)');
-  if(_userId&&dbBrId) sbDelete('brokers',dbBrId);
+  if(_userId&&dbBrId) dbDelete('brokers',dbBrId).catch(e=>console.error('broker delete:',e));
 }
 function openEditModal(id){
   const s=state.stocks.find(x=>x.id===id);if(!s)return;
@@ -1137,7 +1153,7 @@ function deleteStock(id){
   if(!s||!confirm(`${s.name}을(를) 삭제하시겠습니까?`))return;
   const dbStId=_stockMap.get(id);
   state.stocks=state.stocks.filter(x=>x.id!==id);saveState();autoSync();render();showToast(`${s.name} 삭제됨`,'var(--red)');
-  if(_userId&&dbStId) sbDelete('stocks',dbStId);
+  if(_userId&&dbStId) dbDelete('stocks',dbStId).catch(e=>console.error('stock delete:',e));
 }
 function buildColorPicker(containerId,selected,onChange){
   const el=document.getElementById(containerId);el.innerHTML='';
@@ -1422,8 +1438,9 @@ function histAdd() {
   if(_userId){
     const stockDbId=_stockMap.get(s.id);
     if(stockDbId){
-      sbUpsert('div_history',{stock_id:stockDbId,ym,qty,div_per_share:div,
-        ex_date:exDate||null,pay_date:payDate||null,ann_yield:annYield,ann_div:annDiv},'stock_id,ym');
+      dbUpsert('div_history',{stock_id:stockDbId,ym,qty,div_per_share:div,
+        ex_date:exDate||null,pay_date:payDate||null,ann_yield:annYield,ann_div:annDiv},'stock_id,ym')
+        .catch(e=>console.error('hist upsert:',e));
     }
   }
 }
@@ -1446,7 +1463,7 @@ function histDelete(stockId, ym) {
     if(stockDbId){
       const key=`${stockDbId}-${ym}`;
       const dbHistId=_histMap.get(key);
-      if(dbHistId) sbDelete('div_history',dbHistId);
+      if(dbHistId) dbDelete('div_history',dbHistId).catch(e=>console.error('hist delete:',e));
       _histMap.delete(key);
     }
   }
