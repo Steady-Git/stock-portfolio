@@ -1392,21 +1392,44 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 // ═══════════════════════════════════════════
 //  Init — Supabase auth listener
 // ═══════════════════════════════════════════
+let appInitialized = false;
+
+// 안전망: 5초 후에도 스피너가 남아있으면 강제로 숨김
+setTimeout(() => {
+  const spinner = document.getElementById('spinnerWrap');
+  if (spinner && spinner.style.display !== 'none') {
+    spinner.style.display = 'none';
+    // 그래도 유저가 없으면 로그인 화면으로
+    if (!currentUser) {
+      document.getElementById('authWrap').style.display = 'flex';
+    }
+  }
+}, 5000);
+
 sb.auth.onAuthStateChange(async (event, session) => {
+  // 이미 앱이 초기화된 상태에서 토큰 갱신 등 내부 이벤트는 무시
+  if (appInitialized && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN')) return;
+
   if (session && session.user) {
     currentUser = session.user;
     document.getElementById('navEmail').textContent = currentUser.email;
     document.getElementById('spinnerWrap').style.display = 'flex';
     document.getElementById('authWrap').style.display = 'none';
     document.getElementById('appWrap').style.display = 'none';
-    await loadFromDB();
+    try {
+      await loadFromDB();
+    } catch(e) {
+      console.error('DB 로드 오류:', e);
+    }
     currentTab = 'all';
     rebuildTabs();
     render();
     document.getElementById('spinnerWrap').style.display = 'none';
     document.getElementById('appWrap').style.display = '';
+    appInitialized = true;
   } else {
     currentUser = null;
+    appInitialized = false;
     state = { brokers:[], stocks:[], exchangeRate:1400, fxUpdatedAt:null };
     document.getElementById('spinnerWrap').style.display = 'none';
     document.getElementById('appWrap').style.display = 'none';
