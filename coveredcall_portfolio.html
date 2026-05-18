@@ -173,7 +173,7 @@
 <div class="user-bar" id="userBar" style="display:none">
   <span id="userEmail"></span>
   <span class="sync-status" id="syncStatus"></span>
-  <button class="sync-btn" onclick="syncAll()">☁ 동기화</button>
+  <button class="sync-btn" onclick="syncAllManual()">☁ 동기화</button>
   <button onclick="signOut()">로그아웃</button>
 </div>
 
@@ -565,7 +565,8 @@ async function loadFromSupabase() {
         }catch(e2){}
       }
     }
-    saveState(); rebuildTabs(); render();
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+    rebuildTabs(); render();
     setSyncStatus('✓ 동기화됨');
   } catch(e) {
     setSyncStatus('⚠ 불러오기 실패');
@@ -618,12 +619,16 @@ async function syncAll() {
       }
     }
     setSyncStatus('✓ 저장됨');
-    showToast('☁ 클라우드 저장 완료!');
   } catch(e) {
     setSyncStatus('⚠ 저장 실패');
     showToast('저장 실패: ' + e.message, 'var(--red)');
     console.error(e);
   }
+}
+
+async function syncAllManual() {
+  await syncAll();
+  showToast('☁ 클라우드 저장 완료!');
 }
 
 function setSyncStatus(text) {
@@ -633,10 +638,16 @@ function setSyncStatus(text) {
 
 /* ══════════════ 자동 동기화 (변경 시마다) ══════════════ */
 let _syncTimer = null;
+let _syncRunning = false;
 function autoSync() {
   if (!_userId) return;
   clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(syncAll, 2000);
+  _syncTimer = setTimeout(async () => {
+    if (_syncRunning) return;
+    _syncRunning = true;
+    try { await syncAll(); }
+    finally { _syncRunning = false; }
+  }, 3000);
 }
 
 const STORAGE_KEY='cc_portfolio_v1';
@@ -644,7 +655,7 @@ const BROKER_COLORS=['#00d4aa','#4f8ef7','#f5c842','#ff4f6b','#a78bfa','#fb923c'
 let state={brokers:[],stocks:[],nextId:1,nextBrokerId:1};
 let currentTab='all',allView='broker',expandedMerged={},selBrokerColor=BROKER_COLORS[0],editBrokerColor=BROKER_COLORS[0];
 
-function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));autoSync();}
+function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
 function loadState(){try{const r=localStorage.getItem(STORAGE_KEY);if(r)state={...state,...JSON.parse(r)};}catch(e){}}
 function fmtKrw(n){return Math.round(n).toLocaleString('ko-KR')+'원';}
 function fmtSign(n){return(n>=0?'+':'')+Math.round(n).toLocaleString('ko-KR');}
@@ -986,7 +997,7 @@ function addStock(){
     annDiv:_annDiv,
     divHistory:initHist,
   });
-  saveState();clearAddForm();render();showToast(`${name} 추가됨!`);
+  saveState();autoSync();clearAddForm();render();showToast(`${name} 추가됨!`);
   if(_userId){
     const dbBrId=_brokerMap.get(Number(currentTab));
     const newStock=state.stocks[state.stocks.length-1];
@@ -1039,7 +1050,7 @@ function saveEditBroker(){
   if(!name){showToast('이름을 입력해 주세요','var(--red)');return;}
   const br=getBroker(id);if(!br)return;
   br.name=name;br.color=editBrokerColor;
-  saveState();rebuildTabs();document.getElementById('editBrokerModal').classList.remove('show');render();showToast(`${name} 수정됨`);
+  saveState();autoSync();rebuildTabs();document.getElementById('editBrokerModal').classList.remove('show');render();showToast(`${name} 수정됨`);
 }
 function deleteBroker(id){
   const br=getBroker(id);if(!br)return;
@@ -1047,7 +1058,7 @@ function deleteBroker(id){
   if(!confirm(`${br.name}을(를) 삭제하시겠습니까?${cnt>0?'\n보유 종목 '+cnt+'개도 함께 삭제됩니다.':''}`))return;
   const dbBrId=_brokerMap.get(id);
   state.brokers=state.brokers.filter(b=>b.id!==id);state.stocks=state.stocks.filter(s=>s.brokerId!==id);
-  saveState();currentTab='all';rebuildTabs();render();showToast(`${br.name} 삭제됨`,'var(--red)');
+  saveState();autoSync();currentTab='all';rebuildTabs();render();showToast(`${br.name} 삭제됨`,'var(--red)');
   if(_userId&&dbBrId) sbDelete('brokers',dbBrId);
 }
 function openEditModal(id){
@@ -1087,13 +1098,13 @@ function saveEdit(){
     else s.divHistory.push(entry);
     s.divHistory.sort((a,b) => b.ym.localeCompare(a.ym));
   }
-  saveState();closeEditModal();render();showToast(`${name} 수정됨`);
+  saveState();autoSync();closeEditModal();render();showToast(`${name} 수정됨`);
 }
 function deleteStock(id){
   const s=state.stocks.find(x=>x.id===id);
   if(!s||!confirm(`${s.name}을(를) 삭제하시겠습니까?`))return;
   const dbStId=_stockMap.get(id);
-  state.stocks=state.stocks.filter(x=>x.id!==id);saveState();render();showToast(`${s.name} 삭제됨`,'var(--red)');
+  state.stocks=state.stocks.filter(x=>x.id!==id);saveState();autoSync();render();showToast(`${s.name} 삭제됨`,'var(--red)');
   if(_userId&&dbStId) sbDelete('stocks',dbStId);
 }
 function buildColorPicker(containerId,selected,onChange){
@@ -1157,7 +1168,7 @@ function applyBulkPrice(){
   let cc=0,sc=0;
   bulkPriceMap.forEach(m=>{if(m.newPrice==='')return;const v=Number(m.newPrice);if(isNaN(v)||v<0||v===m.curPrice)return;m.stockIds.forEach(sid=>{const s=state.stocks.find(x=>x.id===sid);if(s){s.curPrice=v;sc++;}});cc++;});
   if(cc===0){showToast('변경된 항목이 없습니다','var(--text-muted)');return;}
-  saveState();closeBulkModal();render();showToast(`📈 ${cc}개 종목 (${sc}건) 현재가 업데이트 완료!`);
+  saveState();autoSync();closeBulkModal();render();showToast(`📈 ${cc}개 종목 (${sc}건) 현재가 업데이트 완료!`);
 }
 function openImportExport(){document.getElementById('ieModal').classList.add('show');}
 function exportJSON(){
@@ -1374,7 +1385,7 @@ function histAdd() {
   s.payDate     = latest.payDate;
   s.annYield    = latest.annYield;
   s.annDiv      = latest.annDiv;
-  saveState(); histRenderTable(s); render();
+  saveState();autoSync(); histRenderTable(s); render();
   showToast(`${ym} 배당 이력 저장!`);
   if(_userId){
     const stockDbId=_stockMap.get(s.id);
@@ -1396,7 +1407,7 @@ function histDelete(stockId, ym) {
     s.exDate = latest.exDate; s.payDate = latest.payDate;
     s.annYield = latest.annYield; s.annDiv = latest.annDiv;
   }
-  saveState(); histRenderTable(s); render();
+  saveState();autoSync(); histRenderTable(s); render();
   showToast(`${ym} 이력 삭제됨`, 'var(--red)');
   if(_userId){
     const stockDbId=_stockMap.get(stockId);
