@@ -1390,52 +1390,61 @@ document.addEventListener('keydown',e=>{
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show');}));
 
 // ═══════════════════════════════════════════
-//  Init — Supabase auth listener
+//  Init — 페이지 로드 시 세션 직접 확인
 // ═══════════════════════════════════════════
-let appInitialized = false;
+async function initApp() {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
 
-// 안전망: 5초 후에도 스피너가 남아있으면 강제로 숨김
-setTimeout(() => {
-  const spinner = document.getElementById('spinnerWrap');
-  if (spinner && spinner.style.display !== 'none') {
-    spinner.style.display = 'none';
-    // 그래도 유저가 없으면 로그인 화면으로
-    if (!currentUser) {
+    if (session && session.user) {
+      currentUser = session.user;
+      document.getElementById('navEmail').textContent = currentUser.email;
+      await loadFromDB();
+      currentTab = 'all';
+      rebuildTabs();
+      render();
+      document.getElementById('spinnerWrap').style.display = 'none';
+      document.getElementById('appWrap').style.display = '';
+    } else {
+      document.getElementById('spinnerWrap').style.display = 'none';
       document.getElementById('authWrap').style.display = 'flex';
     }
+  } catch(e) {
+    console.error('초기화 오류:', e);
+    document.getElementById('spinnerWrap').style.display = 'none';
+    document.getElementById('authWrap').style.display = 'flex';
   }
-}, 5000);
+}
 
+// 로그인 성공 후 앱 화면 전환
 sb.auth.onAuthStateChange(async (event, session) => {
-  // 이미 앱이 초기화된 상태에서 토큰 갱신 등 내부 이벤트는 무시
-  if (appInitialized && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN')) return;
+  if (event === 'SIGNED_IN' && session && !document.getElementById('appWrap').style.display) return;
 
-  if (session && session.user) {
+  if (event === 'SIGNED_IN' && session && session.user) {
+    if (document.getElementById('appWrap').style.display === '') return; // 이미 앱 실행 중
     currentUser = session.user;
     document.getElementById('navEmail').textContent = currentUser.email;
-    document.getElementById('spinnerWrap').style.display = 'flex';
     document.getElementById('authWrap').style.display = 'none';
-    document.getElementById('appWrap').style.display = 'none';
+    document.getElementById('spinnerWrap').style.display = 'flex';
     try {
       await loadFromDB();
-    } catch(e) {
-      console.error('DB 로드 오류:', e);
-    }
+    } catch(e) { console.error(e); }
     currentTab = 'all';
     rebuildTabs();
     render();
     document.getElementById('spinnerWrap').style.display = 'none';
     document.getElementById('appWrap').style.display = '';
-    appInitialized = true;
-  } else {
+  }
+
+  if (event === 'SIGNED_OUT') {
     currentUser = null;
-    appInitialized = false;
     state = { brokers:[], stocks:[], exchangeRate:1400, fxUpdatedAt:null };
-    document.getElementById('spinnerWrap').style.display = 'none';
     document.getElementById('appWrap').style.display = 'none';
     document.getElementById('authWrap').style.display = 'flex';
   }
 });
+
+initApp();
 </script>
 </body>
 </html>
