@@ -1384,13 +1384,20 @@ function showApp()      { document.getElementById('spinnerWrap').style.display='
 async function initApp() {
   showSpinner();
   try {
-    // URL 해시에 토큰이 있는 경우 (비밀번호 재설정 링크 클릭 시)
-    const hash = window.location.hash;
-    const params = new URLSearchParams(hash.replace('#', ''));
-    const type = params.get('type');
-    const tokenHash = params.get('token_hash') || params.get('access_token');
+    // URL 쿼리스트링에 토큰이 있는 경우 (비밀번호 재설정 링크 클릭 시)
+    const urlParams = new URLSearchParams(window.location.search);
+    const type = urlParams.get('type');
+    const token = urlParams.get('token');
 
-    if (type === 'recovery' && tokenHash) {
+    // 해시 방식도 함께 지원 (하위 호환)
+    const hash = window.location.hash;
+    const hashParams = new URLSearchParams(hash.replace('#', ''));
+    const hashType = hashParams.get('type');
+    const hashToken = hashParams.get('access_token') || hashParams.get('token_hash');
+
+    const isRecovery = (type === 'recovery' && token) || (hashType === 'recovery' && hashToken);
+
+    if (isRecovery) {
       // 비밀번호 재설정 링크 클릭 → 새 비밀번호 입력 화면 표시
       showAuth();
       showReset();
@@ -1408,7 +1415,7 @@ async function initApp() {
         field.innerHTML = '<label>새 비밀번호</label><input type="password" id="newPw" placeholder="8자 이상" />';
         document.getElementById('resetEmail').parentNode.insertBefore(field, document.getElementById('resetBtn'));
       }
-      // 해시 제거
+      // URL 정리
       history.replaceState(null, '', window.location.pathname);
       return;
     }
@@ -1439,13 +1446,28 @@ async function doSetNewPassword() {
   if (!pw || pw.length < 8) { showAuthErr('비밀번호는 8자 이상이어야 합니다'); return; }
   const btn = document.getElementById('resetBtn');
   btn.disabled = true; btn.textContent = '저장 중...';
-  const { error } = await sb.auth.updateUser({ password: pw });
-  btn.disabled = false; btn.textContent = '새 비밀번호 저장';
-  if (error) showAuthErr(error.message);
-  else {
+
+  // 쿼리스트링 또는 해시에서 토큰 추출
+  const urlParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+  const token = urlParams.get('token') || hashParams.get('access_token') || hashParams.get('token_hash');
+
+  try {
+    // 토큰으로 세션 교환
+    if (token) {
+      await sb.auth.verifyOtp({ token_hash: token, type: 'recovery' });
+    }
+    // 새 비밀번호 설정
+    const { error } = await sb.auth.updateUser({ password: pw });
+    if (error) throw error;
+    // URL 정리
+    history.replaceState(null, '', window.location.pathname);
     showAuthMsg('✅ 비밀번호가 변경됐습니다! 새 비밀번호로 로그인해 주세요');
     setTimeout(() => showLogin(), 2000);
+  } catch(e) {
+    showAuthErr('오류: ' + e.message);
   }
+  btn.disabled = false; btn.textContent = '새 비밀번호 저장';
 }
 
 // 로그인 성공 시 호출
