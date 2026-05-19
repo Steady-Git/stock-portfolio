@@ -460,7 +460,12 @@
 // ═══════════════════════════════════════════
 const SUPABASE_URL = 'https://crxxbrutpzsxljcpdkpa.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNyeHhicnV0cHpzeGxqY3Bka3BhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzM3MzAsImV4cCI6MjA5NDYwOTczMH0.zhwO22_9AQAuo996yZpl64_q9Eps6s0zS3yWJ9GghQY';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+  }
+});
 
 // ═══════════════════════════════════════════
 //  State
@@ -1381,46 +1386,37 @@ function showSpinner()  { document.getElementById('spinnerWrap').style.display='
 function showAuth()     { document.getElementById('spinnerWrap').style.display='none'; document.getElementById('authWrap').style.display='flex'; document.getElementById('appWrap').style.display='none'; }
 function showApp()      { document.getElementById('spinnerWrap').style.display='none'; document.getElementById('authWrap').style.display='none'; document.getElementById('appWrap').style.display=''; }
 
+function setupPasswordResetUI() {
+  showAuth();
+  showReset();
+  clearAuthMsg();
+  showAuthMsg('새 비밀번호를 입력해 주세요');
+  document.getElementById('resetBtn').textContent = '새 비밀번호 저장';
+  document.getElementById('resetBtn').onclick = doSetNewPassword;
+  const emailField = document.getElementById('resetEmail');
+  const emailLabel = emailField.previousElementSibling;
+  if (emailField) emailField.style.display = 'none';
+  if (emailLabel) emailLabel.style.display = 'none';
+  if (!document.getElementById('newPwField')) {
+    const field = document.createElement('div');
+    field.className = 'auth-field';
+    field.id = 'newPwField';
+    field.innerHTML = '<label>새 비밀번호</label><input type="password" id="newPw" placeholder="8자 이상" />';
+    document.getElementById('resetBtn').parentNode.insertBefore(field, document.getElementById('resetBtn'));
+  }
+}
+
+// Supabase 인증 이벤트 리스너 — PASSWORD_RECOVERY 이벤트 처리
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    // 비밀번호 재설정 링크 클릭 시
+    setupPasswordResetUI();
+  }
+});
+
 async function initApp() {
   showSpinner();
   try {
-    // URL 쿼리스트링에 토큰이 있는 경우 (비밀번호 재설정 링크 클릭 시)
-    const urlParams = new URLSearchParams(window.location.search);
-    const type = urlParams.get('type');
-    const token = urlParams.get('token');
-
-    // 해시 방식도 함께 지원 (하위 호환)
-    const hash = window.location.hash;
-    const hashParams = new URLSearchParams(hash.replace('#', ''));
-    const hashType = hashParams.get('type');
-    const hashToken = hashParams.get('access_token') || hashParams.get('token_hash');
-
-    const isRecovery = (type === 'recovery' && token) || (hashType === 'recovery' && hashToken);
-
-    if (isRecovery) {
-      // 비밀번호 재설정 링크 클릭 → 새 비밀번호 입력 화면 표시
-      showAuth();
-      showReset();
-      showAuthMsg('새 비밀번호를 입력해 주세요');
-      // 재설정 폼을 "새 비밀번호 설정" 모드로 변경
-      document.getElementById('resetBtn').textContent = '새 비밀번호 저장';
-      document.getElementById('resetBtn').onclick = doSetNewPassword;
-      document.getElementById('resetEmail').style.display = 'none';
-      document.getElementById('resetEmail').previousElementSibling.style.display = 'none';
-      // 새 비밀번호 입력란 추가
-      if (!document.getElementById('newPwField')) {
-        const field = document.createElement('div');
-        field.className = 'auth-field';
-        field.id = 'newPwField';
-        field.innerHTML = '<label>새 비밀번호</label><input type="password" id="newPw" placeholder="8자 이상" />';
-        document.getElementById('resetEmail').parentNode.insertBefore(field, document.getElementById('resetBtn'));
-      }
-      // URL 정리
-      history.replaceState(null, '', window.location.pathname);
-      return;
-    }
-
-    // 일반 세션 확인
     const { data, error } = await sb.auth.getSession();
     if (error) throw error;
 
@@ -1442,32 +1438,20 @@ async function initApp() {
 }
 
 async function doSetNewPassword() {
-  const pw = document.getElementById('newPw') && document.getElementById('newPw').value;
+  const pwEl = document.getElementById('newPw');
+  const pw = pwEl ? pwEl.value : '';
   if (!pw || pw.length < 8) { showAuthErr('비밀번호는 8자 이상이어야 합니다'); return; }
   const btn = document.getElementById('resetBtn');
   btn.disabled = true; btn.textContent = '저장 중...';
-
-  // 쿼리스트링 또는 해시에서 토큰 추출
-  const urlParams = new URLSearchParams(window.location.search);
-  const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-  const token = urlParams.get('token') || hashParams.get('access_token') || hashParams.get('token_hash');
-
-  try {
-    // 토큰으로 세션 교환
-    if (token) {
-      await sb.auth.verifyOtp({ token_hash: token, type: 'recovery' });
-    }
-    // 새 비밀번호 설정
-    const { error } = await sb.auth.updateUser({ password: pw });
-    if (error) throw error;
-    // URL 정리
-    history.replaceState(null, '', window.location.pathname);
+  const { error } = await sb.auth.updateUser({ password: pw });
+  btn.disabled = false; btn.textContent = '새 비밀번호 저장';
+  if (error) {
+    showAuthErr('오류: ' + error.message);
+  } else {
+    await sb.auth.signOut();
     showAuthMsg('✅ 비밀번호가 변경됐습니다! 새 비밀번호로 로그인해 주세요');
     setTimeout(() => showLogin(), 2000);
-  } catch(e) {
-    showAuthErr('오류: ' + e.message);
   }
-  btn.disabled = false; btn.textContent = '새 비밀번호 저장';
 }
 
 // 로그인 성공 시 호출
@@ -1482,7 +1466,6 @@ async function onLoginSuccess(user) {
   showApp();
 }
 
-// doLogin / doSignup 에서 성공 후 직접 호출하도록 수정
 async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
   const pw    = document.getElementById('loginPw').value;
